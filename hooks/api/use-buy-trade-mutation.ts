@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 export interface BuyTradePayload {
   symbol: string;
   noOfLots: number;
+  lotSize: number;
 }
 
 export const useBuyTradeMutation = () => {

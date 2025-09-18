@@ -18,6 +18,7 @@ import { z } from "zod";
 const formSchema = z.object({
   symbol: z.string().min(1, "Symbol is required."),
   noOfLots: z.number().min(1, "Number of lots must be at least 1."),
+  lotSize: z.number().min(1, "Lot size must be at least 1."),
 });
 
 type BuySellForm = z.infer<typeof formSchema>;
@@ -28,6 +29,7 @@ export default function AdminDashboard() {
     defaultValues: {
       symbol: "",
       noOfLots: 1,
+      lotSize: 1,
     },
   });
 
@@ -36,6 +38,7 @@ export default function AdminDashboard() {
     defaultValues: {
       symbol: "",
       noOfLots: 1,
+      lotSize: 1,
     },
   });
 
@@ -115,6 +118,26 @@ export default function AdminDashboard() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={buyForm.control}
+                name="lotSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lot Size</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Enter lot size"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 1)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <Button type="submit" className="w-full" disabled={isBuying}>
                 {isBuying ? "Placing Buy Order..." : "Buy"}
               </Button>
@@ -157,6 +180,26 @@ export default function AdminDashboard() {
                       <Input
                         type="number"
                         placeholder="Enter number of lots"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 1)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={sellForm.control}
+                name="lotSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lot Size</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Enter lot size"
                         {...field}
                         onChange={(e) =>
                           field.onChange(parseInt(e.target.value) || 1)
