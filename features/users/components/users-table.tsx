@@ -55,6 +55,9 @@ export function UsersTable({}: DataTableProps) {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Opening Balance</TableHead>
+              <TableHead>Available Cash</TableHead>
+              <TableHead>Available Live Balance</TableHead>
               <TableHead>Actions</TableHead>
               <TableHead>Jobs</TableHead>
             </TableRow>
@@ -62,6 +65,15 @@ export function UsersTable({}: DataTableProps) {
           <TableBody>
             {status === "pending" ? (
               <TableRow>
+                <TableCell>
+                  <Skeleton className="h-4 w-full mx-auto" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-full mx-auto" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-full mx-auto" />
+                </TableCell>
                 <TableCell>
                   <Skeleton className="h-4 w-full mx-auto" />
                 </TableCell>
@@ -93,6 +105,21 @@ export function UsersTable({}: DataTableProps) {
                         <TableCell>{user.id}</TableCell>
                         <TableCell>{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          {user.balances.length
+                            ? user.balances[0].availableCash
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {user.balances.length
+                            ? user.balances[0].availableOpeningBalance
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {user.balances.length
+                            ? user.balances[0].availableLiveBalance
+                            : "-"}
+                        </TableCell>
                         <TableCell>
                           <DataTableRowActions row={user} />
                         </TableCell>
