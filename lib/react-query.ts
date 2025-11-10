@@ -13,6 +13,7 @@ export const QUERY_KEYS = {
   PAYMENT_RECEIPTS: "admin:payment:receipts",
   KITE_BALANCE: "user:kite:balance",
   USER_BALANCE: "admin:user:{userId}:balance",
+  PLANS: "plans",
 } as const;
 
 export const getQueryKey = <T extends keyof typeof QUERY_KEYS>(

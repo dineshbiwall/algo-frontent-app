@@ -33,6 +33,7 @@ const formSchema = z
       .min(7, "Password must be at least 7 characters long"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
     kiteId: z.string().min(1, "Please enter your Zerodha Client ID"),
+    referralCode: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match.",
@@ -50,6 +51,7 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
       password: "",
       confirmPassword: "",
       kiteId: "",
+      referralCode: "",
     },
   });
 
@@ -108,6 +110,22 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
               <FormLabel>Zerodha Client ID</FormLabel>
               <FormControl>
                 <Input placeholder="Zerodha Client ID" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="referralCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Referral Code (Zerodha Client ID)</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="Referral Code (Zerodha Client ID)"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

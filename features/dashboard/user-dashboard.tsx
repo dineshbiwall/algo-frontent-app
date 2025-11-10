@@ -9,34 +9,21 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ModuleTypeEnum } from "@/enums/utils.enum";
-import { useCreatePaymentMutation } from "@/hooks/api/use-create-payment-mutation";
+import { useCreatePlanMutation } from "@/hooks/api/use-create-plan-mutation";
 import { useKiteUrlQuery } from "@/hooks/api/use-kite-url-query";
-import { uploadThing } from "@/lib/uploadthing";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconCloudUpload, IconInfoTriangleFilled } from "@tabler/icons-react";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { QRCodeCanvas } from "qrcode.react";
-import { Fragment, useCallback } from "react";
-import { useDropzone } from "react-dropzone";
+import { Fragment } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useVerifyPaymentMutation } from "../../hooks/api/use-verify-payment-mutation";
 import Balance from "./components/balance";
 
 const uploadFormSchema = z.object({
-  paymentReceipt: z
-    .instanceof(File, { message: "Please select a file to upload" })
-    .refine(
-      (file) => file.size <= 5 * 1024 * 1024,
-      "File size must be less than 5MB",
-    )
-    .refine(
-      (file) => ["image/png", "image/jpeg", "image/jpg"].includes(file.type),
-      "Only PNG, JPG, and JPEG files are allowed",
-    ),
-  plan: z.enum(["4999", "5999"], {
+  plan: z.enum(["999", "1999", "3999"], {
     required_error: "Please select a plan",
   }),
 });
@@ -44,52 +31,61 @@ const uploadFormSchema = z.object({
 type UploadForm = z.infer<typeof uploadFormSchema>;
 
 export default function UserDashboard() {
-  const { data, status } = useKiteUrlQuery();
-  const { mutateAsync: createPaymentReceipt } = useCreatePaymentMutation();
+  const { data, status, refetch } = useKiteUrlQuery();
+  const { mutateAsync: createPlan } = useCreatePlanMutation();
+  const { mutateAsync: verifyPayment, isPending: isVerifyingPayment } =
+    useVerifyPaymentMutation();
 
   const uploadForm = useForm<UploadForm>({
     resolver: zodResolver(uploadFormSchema),
     defaultValues: {
-      plan: "4999",
+      plan: "999",
     },
-  });
-
-  const selectedPlan = uploadForm.watch("plan");
-
-  const onDrop = useCallback(
-    (files: File[]) => {
-      if (files.length === 0) return;
-      const file = files[0];
-      uploadForm.setValue("paymentReceipt", file);
-      uploadForm.clearErrors("paymentReceipt");
-    },
-    [uploadForm],
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "image/jpeg": [], "image/png": [], "image/jpg": [] },
-    maxSize: 5 * 1024 * 1024, // 5 MB
-    multiple: false,
   });
 
   const onSubmitUpload = async (values: UploadForm) => {
     try {
-      const { key } = await uploadThing(
-        values.paymentReceipt,
-        ModuleTypeEnum.PaymentReceipt,
-      );
+      const response = await createPlan({ price: Number(values.plan) });
+      await openRazorpayCheckout({
+        amount: response.data.amount,
+        currency: response.data.currency,
+        order_id: response.data.id,
+        name: "Algomax Capital",
+        description: `Plan ₹${values.plan}`,
+        handler: async (response) => {
+          try {
+            // Verify payment on backend and create user plan
+            await verifyPayment({
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            });
+            toast.success("Payment successful! Your plan has been activated.");
+            refetch();
+          } catch (error) {
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : "Payment verification failed",
+            );
+          }
+        },
+        prefill: {
+          name: "User",
+        },
+        theme: {
+          color: "#3399cc",
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info("Payment cancelled");
+          },
+        },
+      });
 
-      await createPaymentReceipt({ key, amount: values.plan });
-
-      toast.success(
-        `Payment receipt uploaded successfully! We will process your payment shortly.`,
-      );
-      // Reset form after successful upload
       uploadForm.reset();
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("Failed to upload payment receipt. Please try again.");
+      toast.error("Failed to purchase plan. Please try again.");
     }
   };
 
@@ -141,16 +137,8 @@ export default function UserDashboard() {
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
             <div className="flex flex-col">
               <h2 className="text-xl font-semibold text-primary pb-5">
-                Please make payment by using this QR code
+                Please selet plan and make a payment.
               </h2>
-
-              <div className="flex justify-center mb-10 pt-5">
-                <QRCodeCanvas
-                  size={250}
-                  level="H"
-                  value={`upi://pay?pa=dineshbiwalfinance@oksbi&pn=Dinesh%20Biwal&aid=uGICAgKDIoLPVYA&am=${selectedPlan}`}
-                />
-              </div>
 
               <Form {...uploadForm}>
                 <form
@@ -170,32 +158,44 @@ export default function UserDashboard() {
                             className="grid grid-cols-1 gap-4"
                           >
                             <div className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800">
-                              <RadioGroupItem value="4999" id="plan-4999" />
+                              <RadioGroupItem value="999" id="plan-999" />
                               <div className="grid gap-1.5 leading-none flex-1">
                                 <label
-                                  htmlFor="plan-4999"
+                                  htmlFor="plan-999"
                                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                 >
-                                  ₹4,999 - I have Kite API credentials
+                                  ₹999/month - 7 days access to the platform
                                 </label>
                                 <p className="text-xs text-muted-foreground">
-                                  Discounted price for users who already have
-                                  Kite API key and secret configured
+                                  Access to the platform for 7 days
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800">
-                              <RadioGroupItem value="5999" id="plan-5999" />
+                              <RadioGroupItem value="1999" id="plan-1999" />
                               <div className="grid gap-1.5 leading-none flex-1">
                                 <label
-                                  htmlFor="plan-5999"
+                                  htmlFor="plan-1999"
                                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                 >
-                                  ₹5,999 - I need help with Kite API setup
+                                  ₹1,999/month - 15 days access to the platform
                                 </label>
                                 <p className="text-xs text-muted-foreground">
-                                  Includes complete Kite API setup assistance
-                                  and configuration support
+                                  Access to the platform for 15 days
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800">
+                              <RadioGroupItem value="3999" id="plan-3999" />
+                              <div className="grid gap-1.5 leading-none flex-1">
+                                <label
+                                  htmlFor="plan-3999"
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
+                                  ₹3,999/month - 30 days access to the platform
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  Access to the platform for 30 days
                                 </p>
                               </div>
                             </div>
@@ -206,75 +206,10 @@ export default function UserDashboard() {
                     )}
                   />
 
-                  {selectedPlan === "4999" && (
-                    <div className="p-4 border border-red-500 rounded-md bg-red-50 flex items-start space-x-3 w-full">
-                      <IconInfoTriangleFilled className="text-red-700 h-5 w-5 mt-1" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-red-700">
-                          Attention needed
-                        </h3>
-                        <p className="text-sm text-red-600 pt-1">
-                          Please add Zerodha API key and API secret before
-                          making any payment.{" "}
-                          <Link
-                            href="/document/zerodha"
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View setup guide
-                          </Link>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <FormField
-                    control={uploadForm.control}
-                    name="paymentReceipt"
-                    render={({ field }) => (
-                      <FormItem className="w-full">
-                        <FormLabel className="sr-only">
-                          Payment Receipt
-                        </FormLabel>
-                        <FormControl>
-                          <div
-                            {...getRootProps()}
-                            className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                              isDragActive
-                                ? "border-primary bg-primary/10"
-                                : "border-gray-300 bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500"
-                            }`}
-                          >
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <IconCloudUpload className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" />
-                              <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
-                                <span className="font-semibold">
-                                  {isDragActive
-                                    ? "Drop the file here"
-                                    : "Click to upload"}
-                                </span>
-                                {!isDragActive && " or drag and drop"}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                PNG, JPG or JPEG (Max. 5MB)
-                              </p>
-                              {field.value && (
-                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                                  Selected: {field.value.name}
-                                </p>
-                              )}
-                            </div>
-                            <input {...getInputProps()} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <Button type="submit" className="w-full">
-                    {uploadForm.formState.isSubmitting
-                      ? "Uploading..."
-                      : "Upload Payment Receipt"}
+                    {uploadForm.formState.isSubmitting || isVerifyingPayment
+                      ? "Purchasing..."
+                      : "Purchase Plan"}
                   </Button>
                 </form>
               </Form>

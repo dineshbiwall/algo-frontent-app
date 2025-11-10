@@ -18,6 +18,7 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_API_BASE_URL: z.string(),
     NEXT_PUBLIC_TG_BOT: z.string(),
+    NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string(),
   },
 
   /**
@@ -30,6 +31,7 @@ export const env = createEnv({
     // Client-side env vars
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
     NEXT_PUBLIC_TG_BOT: process.env.NEXT_PUBLIC_TG_BOT,
+    NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
